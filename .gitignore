@@ -1,0 +1,9 @@
+*.pyc
+/dev/
+.DS_Store
+/app/static/bootstrap.less/
+client_secrets.json
+code.json
+credentials.secret
+google-api-python-client-1.1
+*.sqlite
