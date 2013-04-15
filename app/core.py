@@ -15,7 +15,7 @@ import urllib
 import json
 
 # Our database definitions
-from db.common import app, db, BlogPost, post_sort_order
+from db.common import app, db, FlyingEvent, event_sort_order
 
 def renderme(page, file_id=None): 
     if file_id:
