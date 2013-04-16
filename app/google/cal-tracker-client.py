@@ -10,7 +10,8 @@ from oauth2client.file import Storage
 from apiclient import errors
 from apiclient.discovery import build
 from apiclient import errors
-from datetime import datetime, date
+#from datetime import datetime, date
+import datetime
 from pytz import timezone
 
 from ..db.common import FlyingEvent, db
@@ -21,7 +22,7 @@ from sqlalchemy import desc,asc,and_
 import json
 import re
 import logging
-logging.basicConfig()
+logging.basicConfig(level=logging.DEBUG)
 
 
 # For parsing google drive
@@ -38,34 +39,50 @@ class SpreadsheetInterface:
     google_base_url='https://spreadsheets.google.com/feeds/list/'
     self.data_url = google_base_url + worksheet_url + '/od4/private/full'
     self.log_url =  google_base_url + worksheet_url + '/od5/private/full'
+    self.get_data_contents()
+
 
   def get_data_contents(self):
     resp, content = self.drive_http.request(self.data_url)
     if resp.status == 200:
-      self.content_soup=BeautifulSoup(content)
-      if self_soup.find('entry', 
-        return True, soup
-      else:
-        return False, None
+      self.data_soup=BeautifulSoup(content)
     else:
       raise Exception("Unable to get resource %r" % resp)
 
-  def check_for_and_get_single_event(self, event):
-    resp, content = self.drive_http.request(self.data_url + '?sq=eventid=' + event.event_id)
-    if resp.status == 200:
-      soup=BeautifulSoup(content)
-      if soup.entry:
-        return True, soup
+  # Returns false if they differ
+  def row_equal_to_event(self, event, entry_tag) :
+    def entry_to_dict():
+      dict = {}
+      for data in entry_tag.find_all(re.compile('^gsx:')):
+        key = re.sub('gsx:', '', data.name)
+        dict[key]=data.text
+      return dict
+    retval = True
+    # Transform both objects to dict
+    entry=entry_to_dict()
+    event=eval(repr(event))
+    for key in event:
+      # Google spreadsheet removes _s
+      keysub=re.sub('_','',key)
+      if keysub in entry:
+         if str(event[key]) != str(entry[keysub]):
+           logging.warning('Key %s didn\'t match %s != %s, %r' % (key, str(event[key]), str(entry[keysub]), entry))
+           return False
+    return retval
+    
+  def check_for_updated_event(self, event):
+    event_id = self.data_soup.find('gsx:eventid', text=event.event_id)
+    if event_id: 
+      if not self.row_equal_to_event(event, event_id.parent):
+        content = event_id.parent
       else:
-        return False, None
+        content = None
+      return True, content
     else:
-      raise Exception("Unable to get resource %r" % resp)
+      return False, None
 
-  def get_events()
-
-  def upload_new_event(event):
-    headers = {"Content-type": "application/atom+xml"}
-    new_event="""<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">
+  def entry_tag_from_event(self,event):
+    return """<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">
          <gsx:date>%s</gsx:date>
          <gsx:pilotusername>%s</gsx:pilotusername>
          <gsx:tachstart>%s</gsx:tachstart>
@@ -74,36 +91,27 @@ class SpreadsheetInterface:
          <gsx:eventid>%s</gsx:eventid>
     </entry>""" % (event.end_date.strftime('%Y-%m-%d'), event.creator_email,
                       event.tach_start, event.tach_end, event.tach_end - event.tach_start, event.event_id)
-    resp, content = drive_http.request(data_url, "POST", new_event, headers)
-    if resp.status == 201:
-      print "OK"
+
+  def update_entry(self, event, edit_url):
+    headers = {"Content-type": "application/atom+xml"}
+    new_entry=self.entry_tag_from_event(event)
+    resp, content = self.drive_http.request(edit_url, "PUT", new_entry, headers)
+    # Success
+    if resp.status == 200:
       return content
     else:
-      print "Unable to upload event"
-      return None
+      raise Exception("Unable to upload event %r, response: %r" % (event, resp))
+
+  def upload_new_entry(self, event):
+    headers = {"Content-type": "application/atom+xml"}
+    new_entry=self.entry_tag_from_event(event)
+    resp, content = self.drive_http.request(self.data_url, "POST", new_entry, headers)
+    # Created
+    if resp.status == 201:
+      return content
+    else:
+      raise Exception("Unable to upload event %r, response: %r" % (event, resp))
       
-  # Events in the past
-  def check_past_events():
-    events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >  datetime(2013,04,01).date(), # This is from when we have good data
-                                         FlyingEvent.end_date <  datetime.today().date(),
-                                         FlyingEvent.flying==True, )).order_by(asc(FlyingEvent.end_date)).all()
-    for i, event in enumerate(events):
-      if i == 0:
-        continue
-      try: 
-        if event.tach_start != events[i-1].tach_end:
-          print "Tach  Mismatch between %s and %s (start %s: %s, end %s: %s)!\n" % (event.creator_email, events[i-1].creator_email,
-                                                        event.end_date, event.tach_start, events[i-1].start_date, events[i-1].tach_end)
-          break
-        else:
-          exists, soup = check_for_and_get_event(event)
-          if exists:
-            # Consider auto-updating the event?
-            pass
-          else:
-            upload_event(event)
-      except (IndexError, ValueError) as e:
-        raise Exception('Can\'t compare tachs: %r, %r, %r' % (e, event, events[i-1]))
 
 def retrieve_files(service, folder_id):
   """Retrieve a list of File resources.
@@ -130,7 +138,7 @@ def retrieve_files(service, folder_id):
       if not page_token:
         break
     except errors.HttpError, error:
-      print 'An error occurred: %s' % error
+      logging.warning('An error occurred: %s' % error)
       break
   return result
 
@@ -144,7 +152,7 @@ def print_metadata(service, file_id):
     file = service.files().get(fileId=file_id).execute()
     print 'Metadata: %s' % file
   except errors.HttpError, error:
-    print 'An error occurred: %s' % error
+    logging.warning('An error occurred: %s' % error)
 
 def download_file(service, file_id):
   """Download a file's content.
@@ -159,14 +167,12 @@ def download_file(service, file_id):
   file = service.files().get(fileId=file_id).execute()
   modified_date = file['modifiedDate']
   download_url = file['exportLinks']['text/html']
-  print "url: " + download_url
   if download_url:
     resp, content = service._http.request(download_url)
     if resp.status == 200:
-      #print 'Status: %s' % resp
       return modified_date, content
     else:
-      print 'An error occurred: %s' % resp
+      logging.warning('An error occurred: %s' % resp)
       return None
   else:
     # The file doesn't have any content stored on Drive.
@@ -236,18 +242,48 @@ def main(args=None, parser=None):
       db_event=FlyingEvent.query.filter_by(event_id=cal_event['id']).first()
       # New post, add to DB
       if db_event == None:
-         print "New post!"
+         logging.debug("Adding new calendar event %r" % cal_event)
          db_event=FlyingEvent(cal_event['id'], updated_datetime, cal_event)
          db.session.add(db_event)
       else:
         if db_event<updated_datetime:
-          print "Updating post!"
+          logging.debug("Updating db from calendar %r" % cal_event)
           db_event.update_event(updated_datetime, cal_event)
         else:
-          print 'Post already updated'
           if opts.refresh:
+            logging.debug("Forcing db update from calendar %r" % cal_event)
             db_event.update_event(updated_datetime, cal_event)
       db.session.commit()
+
+  # Events in the past
+  def check_past_events():
+    events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >  datetime.datetime(2013,04,01).date(), # This is from when we have good data
+                                         FlyingEvent.end_date <  datetime.datetime.today().date(),
+                                         FlyingEvent.flying==True, )).order_by(asc(FlyingEvent.end_date)).all()
+    for i, event in enumerate(events):
+      if i == 0:
+        continue
+      try: 
+        if event.tach_start != events[i-1].tach_end:
+          message="Tach mismatch \n*****************\n\
+          %s's end tach on %s: \t %s\n\
+          %s's start tach on %s: \t %s\n" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].tach_end,
+                                                  event.creator_email, event.start_date, event.tach_start)
+          print message
+          break
+        else:
+          # event_tag is none unless the event has changed
+          event_exists, event_tag = ss.check_for_updated_event(event)
+          if event_exists:
+            # If the event has changed, we update...
+            if event_tag:
+              logging.debug("Updating row for event %r..." % event)
+              ss.update_entry(event, event_tag.find('link', rel='edit')['href'])
+          else: # It's a new event
+            logging.debug("Adding spreadsheet row %r" % event)
+            ss.upload_new_entry(event)
+      except (IndexError, ValueError) as e:
+        raise Exception('Can\'t compare tachs: %r, %r, %r' % (e, event, events[i-1]))
 
   if not os.path.exists(get_full_path('credentials.secret')):
     generate_and_store_credentials()
@@ -258,15 +294,19 @@ def main(args=None, parser=None):
   cal_service, cal_http=build_service(credentials, service_name='calendar')
 
   # Mooney spreadsheet
-  mooney_spreadsheet='0AvS2F7wRovC4dEpmMEFGYnJVVWZpV1RTUzZLYk5UTnc'
   mooney_calendar='r86s1non6cr5dsmmjk38580ol4@group.calendar.google.com'
   calendar = cal_service.calendars().get(calendarId=mooney_calendar).execute()
 
   # A static time for which our calendar entries are well formatted.
   time_format = '%Y-%m-%dT%H:%M:%S'
-  timeMin=datetime(2013,04,01,0,0,0, tzinfo=timezone(calendar['timeZone'])).strftime(time_format+'%z')
+  timeMin=datetime.datetime(2013,04,01,0,0,0, tzinfo=timezone(calendar['timeZone'])).strftime(time_format+'%z')
   events=query_events(cal_service, mooney_calendar, timeMin)
+
   update_db_events(events)
+  ss=SpreadsheetInterface(drive_http)
+  check_past_events()
+  
+  
 
 
 if __name__ == '__main__':

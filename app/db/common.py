@@ -16,7 +16,8 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.expression import func
 
 import re
-from datetime import datetime, date
+#from datetime import datetime, date
+import datetime
 import os
 import urllib
 
@@ -35,7 +36,7 @@ def convert_google_date(raw_date, frmt):
   def strip_tz_info(raw_date):
     return re.sub('(.+)([+-]\d{2}:\d{2})$','\g<1>', raw_date) 
   try: 
-    conv_date = datetime.strptime(strip_tz_info(raw_date), frmt)
+    conv_date = datetime.datetime.strptime(strip_tz_info(raw_date), frmt)
     if conv_date==None:
       raise ValueError('Error converting %s' % (raw_date))
     else:
@@ -81,7 +82,7 @@ class FlyingEvent(db.Model):
         return self.updated_datetime <= convert_google_date(new_date, 'google_ts')
     def __gte__(self, new_date):
         return self.updated_datetime >= convert_google_date(new_date, 'google_ts')
-      
+
     def process_event_and_extract_data(self, event):
       def set_flying():
         try:
@@ -105,13 +106,10 @@ class FlyingEvent(db.Model):
             return float(line)
           except ValueError:
             return None
-        try: 
-          if self.flying and self.end_date.date() < date.today():
-            lines = self.description.split('\n')
-            self.tach_start = get_digits(lines[0])
-            self.tach_end = get_digits(lines[1])
-        except Exception as e:
-          raise Exception('%r, Could not parse tach %r' % (e, self))
+        if self.flying and self.end_date.date() < datetime.date.today():
+          lines = self.description.split('\n')
+          self.tach_start = get_digits(lines[0])
+          self.tach_end = get_digits(lines[1])
       def gather_data():
         set_flying()
         self.creator_email = event['creator']['email']
@@ -126,7 +124,6 @@ class FlyingEvent(db.Model):
           self.description = event['description']
         except:
           self.description = ""
-        print repr(self)
         extract_hours()
       gather_data()
 
