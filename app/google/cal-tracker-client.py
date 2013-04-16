@@ -9,8 +9,6 @@ from oauth2client.client import flow_from_clientsecrets
 from oauth2client.file import Storage
 from apiclient import errors
 from apiclient.discovery import build
-from apiclient import errors
-#from datetime import datetime, date
 import datetime
 from pytz import timezone
 
