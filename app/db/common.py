@@ -20,6 +20,8 @@ import re
 import datetime
 import os
 import urllib
+import logging
+logging.basicConfig()
 
 # Utility functions
 def get_full_db_path(file):
@@ -107,9 +109,14 @@ class FlyingEvent(db.Model):
           except ValueError:
             return None
         if self.flying and self.end_date.date() < datetime.date.today():
+          self.tach_start = None
+          self.tach_end = None
           lines = self.description.split('\n')
-          self.tach_start = get_digits(lines[0])
-          self.tach_end = get_digits(lines[1])
+          try:
+            self.tach_start = get_digits(lines[0])
+            self.tach_end = get_digits(lines[1])
+          except IndexError:
+            logging.warning('Could not parse description %r' % self.description)
       def gather_data():
         set_flying()
         self.creator_email = event['creator']['email']
@@ -141,8 +148,12 @@ class FlyingEvent(db.Model):
                                         FlyingEvent.flying==True)).order_by(sort_order(FlyingEvent.end_date)).first()
 
     def __str__(self): 
-        return "%s \t %s \t %g \t %g \t %g \t %s" % (self.end_date.strftime('%Y-%m-%d'), self.creator_email,
-                                                  self.tach_start, self.tach_end, self.tach_end - self.tach_start, self.event_id)
+      try: 
+        tach_diff = self.tach_end - self.tach_start
+      except TypeError:
+        tach_diff = 0 
+      return "%s \t %s \t %g \t %g \t %g \t %s" % (self.end_date.strftime('%Y-%m-%d'), self.creator_email,
+                                                  self.tach_start, self.tach_end, tach_diff, self.event_id)
 
     def __repr__(self):
         return '{ "event_id": %r, "update_datetime": %r, "start_date": %r, "end_date": %r, "status": %r,\
