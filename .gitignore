@@ -1,5 +1,6 @@
 *.pyc
 /dev/
+/prod/
 .DS_Store
 /app/static/bootstrap.less/
 client_secrets.json
