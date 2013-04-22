@@ -124,7 +124,7 @@ class SpreadsheetInterface:
   def check_past_events(self):
     events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >  datetime.datetime(2013,04,01).date(), # This is from when we have good data
                                          FlyingEvent.end_date <  datetime.datetime.today().date(),
-                                         FlyingEvent.flying==True, )).order_by(asc(FlyingEvent.end_date)).all()
+                                         FlyingEvent.flying==True)).order_by(asc(FlyingEvent.end_date)).all()
     for i, event in enumerate(events):
       if i == 0:
         continue
@@ -214,7 +214,6 @@ class GoogleInterface:
         auth_string = base64.b64encode(auth_string)
       return auth_string
     smtp_conn = smtplib.SMTP('smtp.gmail.com', 587)
-    #smtp_conn.set_debuglevel(True)
     smtp_conn.ehlo()
     smtp_conn.starttls()
     smtp_conn.ehlo()
@@ -232,7 +231,7 @@ class GoogleInterface:
       # A static time for which our calendar entries are well formatted.
       timeMin=datetime.datetime(2013,04,01,0,0,0, tzinfo=timezone(cal_tz)).strftime(time_format+'%z')
       events = self.cal_service.events().list(calendarId=self.calendar_id, orderBy='startTime', singleEvents=True,
-                                              timeMin=timeMin).execute()
+                                              timeMin=timeMin, showDeleted=True).execute()
       if events['items']:
         return events['items'] 
       else:
@@ -279,8 +278,7 @@ def main(args=None, parser=None):
   ss.check_past_events()
 
   ## XXX TODO:
-  ## Make it so we email out when the tach doesn't match (I can't just look @ a log file)
-  ## Deploy on a webserver (or Raspberry pi?)
+  ## Deploy... 
   ## Program in "points" system for future events
   ## Pie in sky: Make a webpage where people can go to add missing hours, view points in use, etc
   

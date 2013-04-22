@@ -87,13 +87,15 @@ class FlyingEvent(db.Model):
 
     def process_event_and_extract_data(self, event):
       def set_flying():
-        try:
-          if event['description']=='NOFLY':
+        # We're flying
+        self.flying=True
+        # Unless the event is cancelled
+        if event['status']=='cancelled':
+          self.flying=False
+        elif 'description' in event:
+          # Or it's been labeled "NOFLY" in the description
+          if re.match('^NOFLY', event['description'].upper()):
             self.flying=False
-          else:
-            self.flying=True
-        except:
-          self.flying=True
       def get_event_date(date_structure):
         try: 
           if 'dateTime' in date_structure:
