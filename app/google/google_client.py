@@ -271,7 +271,8 @@ def main(args=None, parser=None):
   parser = parser or make_parser()
   opts = parser.parse_args(args)
   if opts.debug:
-    logging.setLevel(logging.DEBUG)
+    log=logging.getLogger
+    log.setLevel(logging.DEBUG)
   gg = GoogleInterface(opts)
   gg.update_db_events()
 
