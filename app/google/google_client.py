@@ -131,9 +131,9 @@ class SpreadsheetInterface:
       try: 
         if event.tach_start != events[i-1].tach_end:
           message="Tach mismatch \n*****************\n\
-          %s's end tach on %s: \t %s\n\
-          %s's start tach on %s: \t %s\n" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].tach_end,
-                                                  event.creator_email, event.start_date, event.tach_start)
+          %s's end tach on %s (desc %s): \t %s\n\
+          %s's start tach on %s (desc %s): \t %s\n" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].summary, events[i-1].tach_end,
+                                                  event.creator_email, event.start_date, event.summary, event.tach_start)
           self.send_mail(message)
           break
         else:
