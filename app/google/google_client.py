@@ -131,8 +131,8 @@ class SpreadsheetInterface:
       try: 
         if event.tach_start != events[i-1].tach_end:
           message="Tach mismatch \n*****************\n\
-          %s's end tach on %s (desc %s): \t %s\n\
-          %s's start tach on %s (desc %s): \t %s\n" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].summary, events[i-1].tach_end,
+          %s's end tach on %s (%s): \t %s\n\
+          %s's start tach on %s (%s): \t %s\n" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].summary, events[i-1].tach_end,
                                                   event.creator_email, event.start_date, event.summary, event.tach_start)
           self.send_mail(message)
           break
@@ -219,7 +219,7 @@ class GoogleInterface:
     smtp_conn.ehlo()
     smtp_conn.docmd('AUTH', 'XOAUTH2 ' + generate_oauth2_string())
     msg = 'From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n' % (self.username, recipient, subject) + msg
-    print msg
+    logging.debug(msg)
     smtp_conn.sendmail(self.username, recipient, msg)
     smtp_conn.quit()
 
@@ -270,7 +270,8 @@ def main(args=None, parser=None):
       args = sys.argv[1:]
   parser = parser or make_parser()
   opts = parser.parse_args(args)
-
+  if opts.debug:
+    setLevel(logging.DEBUG)
   gg = GoogleInterface(opts)
   gg.update_db_events()
 
