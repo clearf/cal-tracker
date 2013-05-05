@@ -181,7 +181,7 @@ class SpreadsheetInterface:
             greeting = email_to_name(events[i-1].creator_email) + ",\nIt looks like you may have forgot to enter some data\n"
           else:
             greeting = "Fellas,\nI'm a little confused. It seems like someone's flight may be missing? Or maybe just some numbers are off...\n\
-            Here's what I'm seeing:\n\n"
+Here's what I'm seeing:\n\n"
           message= greeting + "Tach mismatch \n*****************\n\
           %s's end tach on %s (%s): \t %s\n\
           %s's start tach on %s (%s): \t %s\n\
