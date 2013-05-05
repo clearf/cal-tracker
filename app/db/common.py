@@ -67,6 +67,8 @@ class FlyingEvent(db.Model):
     flying = db.Column(db.Boolean)
     tach_start = db.Column(db.Float)
     tach_end = db.Column(db.Float)
+    send_followup = db.Column(db.Boolean)
+    followup_sent = db.Column(db.Boolean)
 
     def __init__(self, event_id, updated_datetime, event):
         self.event_id = event_id
@@ -110,7 +112,8 @@ class FlyingEvent(db.Model):
             return float(line)
           except ValueError:
             return None
-        if self.flying and self.end_date.date() < datetime.date.today():
+        if self.flying:  # Actually, we're willing to try and parse this before the end of the day. 
+          # We'll leave the decision about what to call a "missing" event to the query side of this.
           self.tach_start = None
           self.tach_end = None
           lines = self.description.split('\n')
@@ -119,6 +122,11 @@ class FlyingEvent(db.Model):
             self.tach_end = get_digits(lines[1])
           except IndexError:
             logging.warning('Could not parse description %r' % self.description)
+          # A series of optional matches
+          # If it starts with an X, we'll send a followup
+          if re.search('^X', self.description.upper(), re.MULTILINE):
+            self.send_followup=True
+            logging.debug("Sending followup")
       def gather_data():
         set_flying()
         self.creator_email = event['creator']['email']
@@ -159,7 +167,8 @@ class FlyingEvent(db.Model):
 
     def __repr__(self):
         return '{ "event_id": %r, "update_datetime": %r, "start_date": %r, "end_date": %r, "status": %r,\
-        "creator_email": %r, "summary": %r, "description": %r, "flying": %r, "tach_start": %r, "tach_end": %r}' % (self.event_id, 
+        "creator_email": %r, "summary": %r, "description": %r, "flying": %r, "tach_start": %r, "tach_end": %r, "send_followup": %r, "followup_sent": %r}' % (
+        self.event_id, 
          self.updated_datetime,  
          self.start_date, 
          self.end_date,
@@ -169,6 +178,8 @@ class FlyingEvent(db.Model):
          self.description,
          self.flying, 
          self.tach_start,
-         self.tach_end)
+         self.tach_end,
+         self.send_followup,
+         self.followup_sent)
 
 event_sort_order = [desc(FlyingEvent.end_date), FlyingEvent.start_date]

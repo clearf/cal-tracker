@@ -19,6 +19,7 @@ from sqlalchemy import desc,asc,and_
 # Utilities
 import json
 import re
+import random
 import logging
 import base64
 import smtplib
@@ -31,6 +32,21 @@ from bs4 import BeautifulSoup
 def get_full_path(file):
   return os.path.join(os.path.dirname(__file__), file)
 
+def email_to_name(email):
+  if email=='rjt.vmi@gmail.com':
+    return 'Rob'
+  elif email=='jordanzaretsky@gmail.com':
+    return 'Jordan'
+  elif email=='mark.brager@gmail.com':
+    return 'Mark'
+  elif email=='chris.clearfield@gmail.com':
+    return 'Chris'
+  else:
+    return email
+
+def airplane_salutation():
+  names=['The Mooney', 'N2201', 'The Speed Queen', 'Da Mooney', 'Your Airplane']
+  return random.choice(names)
 
 class SpreadsheetInterface:
   def __init__(self, http, send_mail, worksheet_url='0AvS2F7wRovC4dEpmMEFGYnJVVWZpV1RTUzZLYk5UTnc'):
@@ -120,8 +136,37 @@ class SpreadsheetInterface:
     else:
       raise Exception("Unable to upload event %r, response: %r" % (event, resp))
 
+  def process_followup(self):
+    def followup_message(event):
+      if event.start_date == event.end_date:
+        return "\t%s on %s" % (event.summary, event.start_date, event.end_date)
+      else:
+        return "\t%s from %s to %s" % (event.summary, event.start_date, event.end_date)
+    followup_events=FlyingEvent.query.filter(and_(FlyingEvent.send_followup==True, FlyingEvent.followup_sent==False)).all()
+    followup_details={}
+
+    # Process every event that has a followup "X"
+    for followup_event in followup_events:
+      followup_event.followup_sent=True
+      db.update(followup_event)
+      if followup_event.creator_email not in followup_details:
+        followup_details[followup_event.creator_email] = followup_message(followup_event)
+      else:
+        followup_details[followup_event.creator_email] += '\n' + followup_message(followup_event)
+    db.session.commit()
+    
+    # Send out email for the followup we have gathered
+    for email, flights in followup_details.iteritems():
+      message = "%s, you indicated that you wanted to followup on some flights:\n%s\n" % (email_to_name(email), flights)
+      message += "\n\nClick here to fill out the followup form:\n" 
+      message += "https://docs.google.com/forms/d/1NlnetOPmJCm652Vq_hMii7wurDaJT8j1qVUr3LYspGo/viewform\n"
+      message += "Thanks,\n%s" % airplane_salutation()
+      self.send_mail(message, subject='Followup on flight', recipient=email)
+    
+      
   # Events in the past
-  def check_past_events(self):
+  # Check these events for tach 
+  def check_past_events_for_tach(self):
     events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >  datetime.datetime(2013,04,01).date(), # This is from when we have good data
                                          FlyingEvent.end_date <  datetime.datetime.today().date(),
                                          FlyingEvent.flying==True)).order_by(asc(FlyingEvent.end_date)).all()
@@ -130,11 +175,20 @@ class SpreadsheetInterface:
         continue
       try: 
         if event.tach_start != events[i-1].tach_end:
-          message="Tach mismatch \n*****************\n\
+          if event.tach_start == None:
+            greeting = email_to_name(event.creator_email) + ",\nIt looks like you may have forgot to enter some data\n"
+          elif events[i-1].tach_end == None:
+            greeting = email_to_name(events[i-1].creator_email) + ",\nIt looks like you may have forgot to enter some data\n"
+          else:
+            greeting = "Fellas,\nI'm a little confused. It seems like someone's flight may be missing? Or maybe just some numbers are off...\n\
+            Here's what I'm seeing:\n\n"
+          message= greeting + "Tach mismatch \n*****************\n\
           %s's end tach on %s (%s): \t %s\n\
-          %s's start tach on %s (%s): \t %s\n" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].summary, events[i-1].tach_end,
-                                                  event.creator_email, event.start_date, event.summary, event.tach_start)
-          self.send_mail(message)
+          %s's start tach on %s (%s): \t %s\n\
+          \nYour friend,\n%s" % (events[i-1].creator_email, events[i-1].end_date, events[i-1].summary, events[i-1].tach_end,
+                                                  event.creator_email, event.start_date, event.summary, event.tach_start, airplane_salutation())
+          
+          self.send_mail(message, subject='Tach Mismatch', recipient='mooney-201@googlegroups.com')
           break
         else:
           # event_tag is none unless the event has changed
@@ -250,7 +304,8 @@ class GoogleInterface:
           db_event.update_event(updated_datetime, cal_event)
         else:
           if self.opts.refresh:
-            logging.debug("Forcing db update from calendar %r" % cal_event)
+            if cal_event['status']!='cancelled':
+              logging.debug("Forcing db update from calendar %r" % cal_event)
             db_event.update_event(updated_datetime, cal_event)
       db.session.commit()
 
@@ -277,7 +332,8 @@ def main(args=None, parser=None):
   gg.update_db_events()
 
   ss=SpreadsheetInterface(gg.drive_http, gg.send_mail)
-  ss.check_past_events()
+  ss.process_followup()
+  ss.check_past_events_for_tach()
 
   ## XXX TODO:
   ## Deploy... 
