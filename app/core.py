@@ -53,7 +53,7 @@ def main(args=None, parser=None):
     opts = parser.parse_args(args)
     if opts.debug:
         app.debug = True
-    app.run(port=5001)
+    app.run('0.0.0.0', port=5001)
     return 0
 
 app.secret_key = '>O8#P+RxSI&opa0HsDIk'
