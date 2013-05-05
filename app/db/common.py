@@ -123,8 +123,8 @@ class FlyingEvent(db.Model):
           except IndexError:
             logging.warning('Could not parse description %r' % self.description)
           # A series of optional matches
-          # If it starts with an X, we'll send a followup
-          if re.search('^X', self.description.upper(), re.MULTILINE):
+          # If there is an X, we'll send a followup email
+          if re.search('X', self.description.upper(), re.MULTILINE):
             self.send_followup=True
             logging.debug("Sending followup")
       def gather_data():
