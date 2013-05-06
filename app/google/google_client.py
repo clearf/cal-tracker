@@ -267,15 +267,19 @@ class GoogleInterface:
       if base64_encode:
         auth_string = base64.b64encode(auth_string)
       return auth_string
-    smtp_conn = smtplib.SMTP('smtp.gmail.com', 587)
-    smtp_conn.ehlo()
-    smtp_conn.starttls()
-    smtp_conn.ehlo()
-    smtp_conn.docmd('AUTH', 'XOAUTH2 ' + generate_oauth2_string())
     msg = 'From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n' % (self.username, recipient, subject) + msg
-    logging.debug(msg)
-    smtp_conn.sendmail(self.username, recipient, msg)
-    smtp_conn.quit()
+    if not self.opts.nomail:
+      smtp_conn = smtplib.SMTP('smtp.gmail.com', 587)
+      smtp_conn.ehlo()
+      smtp_conn.starttls()
+      smtp_conn.ehlo()
+      smtp_conn.docmd('AUTH', 'XOAUTH2 ' + generate_oauth2_string())
+      logging.debug(msg)
+      smtp_conn.sendmail(self.username, recipient, msg)
+      smtp_conn.quit()
+    else:
+      print msg
+    
 
   def update_db_events(self):
     def query_events():
@@ -319,6 +323,7 @@ def main(args=None, parser=None):
                                   add_help=True if not parents else False)
       p.add_argument('--debug', action='store_true')
       p.add_argument('--refresh', action='store_true')
+      p.add_argument('--nomail', action='store_true')
       p.set_defaults()
       return p
   if args is None:
