@@ -12,14 +12,13 @@ from apiclient.discovery import build
 import datetime
 from pytz import timezone
 
-from ..db.common import FlyingEvent, db
+from ..db.common import FlyingEvent, db, email_to_name, airplane_salutation
 from sqlalchemy import desc,asc,and_
 
 
 # Utilities
 import json
 import re
-import random
 import logging
 import base64
 import smtplib
@@ -32,21 +31,7 @@ from bs4 import BeautifulSoup
 def get_full_path(file):
   return os.path.join(os.path.dirname(__file__), file)
 
-def email_to_name(email):
-  if email=='rjt.vmi@gmail.com':
-    return 'Rob'
-  elif email=='jordanzaretsky@gmail.com':
-    return 'Jordan'
-  elif email=='mark.brager@gmail.com':
-    return 'Mark'
-  elif email=='chris.clearfield@gmail.com':
-    return 'Chris'
-  else:
-    return email
 
-def airplane_salutation():
-  names=['The Mooney', 'N2201', 'The Speed Queen', 'Da Mooney', 'Your Airplane']
-  return random.choice(names)
 
 class SpreadsheetInterface:
   def __init__(self, http, send_mail, worksheet_url='0AvS2F7wRovC4dEpmMEFGYnJVVWZpV1RTUzZLYk5UTnc'):
@@ -81,7 +66,7 @@ class SpreadsheetInterface:
       # Google spreadsheet removes _s
       keysub=re.sub('_','',key)
       if keysub in entry:
-         if str(event[key]) != str(entry[keysub]):
+        if str(event[key]) != str(entry[keysub]): #and entry[keysub] != '2201aviation@gmail.com':
            logging.warning('Key %s didn\'t match %s != %s, %r' % (key, str(event[key]), str(entry[keysub]), entry))
            return False
     return retval
@@ -163,6 +148,78 @@ class SpreadsheetInterface:
       message += "Thanks,\n%s" % airplane_salutation()
       self.send_mail(message, subject='Followup on flight', recipient=email)
     
+  def calculate_users_points(self):
+    def calculate_event_points(event):
+      def count_weekends_infringed(event):
+        weekends=0
+        one_day=datetime.timedelta(days=1)
+        first_day_counting=max(event.start_date, datetime.datetime.today())
+        #first_day_counting=event.start_date
+        # If we start on a weekend, count that as one weekend
+        # And start our counting on the subsequent Monday. 
+        if first_day_counting.weekday()==6:
+          weekends+=1
+          first_day_counting+=one_day
+        elif first_day_counting.weekday()==5:
+          weekends+=1
+          first_day_counting+=one_day*2
+        last_day_counting=event.end_date
+        # If we end on a Saturday or Sunday, count that as a weekend
+        # and start our counting on the Friday prior
+        if last_day_counting.weekday()==5:
+          weekends+=1
+          last_day_counting-=one_day 
+        elif last_day_counting.weekday()==6:
+          weekends+=1
+          last_day_counting-=one_day*2
+        flying_day = first_day_counting
+        # Count the weekends within our booking
+        counted_weekends=0
+        while flying_day <= last_day_counting:
+          if flying_day.weekday() >= 5:
+            counted_weekends+=1 
+          flying_day+=one_day
+        assert counted_weekends % 2 == 0
+        return weekends + counted_weekends / 2 
+      # End count_weekends_infringed
+      continuous_start_date=max(event.start_date, datetime.datetime.today())
+      booking_length = event.end_date - continuous_start_date
+      if booking_length > datetime.timedelta(days=14):
+        points = 999 # No more than two weeks allowed
+      elif booking_length > datetime.timedelta(days=7): # 7 to 14 days
+        points = 3 
+        if count_weekends_infringed(event) > 2:
+          points += 1 
+      elif booking_length >= datetime.timedelta(days=1) and booking_length <= datetime.timedelta(days=7):
+        points = 2
+        if count_weekends_infringed(event) > 1:
+          points += 1 
+      else:
+        points = 1 # Basic bookings are equal to 1 point
+      return points
+    # End calculate_vent_points
+
+    events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >=  datetime.datetime.today().date(),
+                                          FlyingEvent.flying==True)).order_by(asc(FlyingEvent.end_date)).all()
+    bookings={}
+    for event in events:
+      summary_text =  event.creator_email,  event.summary, str(event.start_date), str(event.end_date),  \
+         event.end_date - max(event.start_date, datetime.datetime.today())
+      if event.creator_email not in bookings:
+        bookings[event.creator_email] = {
+          'points': [calculate_event_points(event)],
+          'summary': [summary_text]
+          }
+      else:
+        bookings[event.creator_email]['points'].append(calculate_event_points(event))
+        bookings[event.creator_email]['summary'].append(summary_text)
+    message = '' 
+    for email, booking in bookings.iteritems():
+      total_points = sum(booking['points'])
+      message+='%s\t%d\n' % (email_to_name(email), total_points)
+      if total_points > 4:
+        message+='\t\t ^^^^ Too many points!\n'
+    self.send_mail(message, subject='Booking points')
       
   # Events in the past
   # Check these events for tach 
@@ -294,25 +351,30 @@ class GoogleInterface:
         return events['items'] 
       else:
         None
+    updated=False
     for cal_event in query_events():
       updated_datetime = cal_event['updated']
       db_event=FlyingEvent.query.filter_by(event_id=cal_event['id']).first()
       # New post, add to DB
       if db_event == None:
          logging.debug("Adding new calendar event %r" % cal_event)
-         db_event=FlyingEvent(cal_event['id'], updated_datetime, cal_event)
+         db_event=FlyingEvent(cal_event['id'], updated_datetime, cal_event, self.send_mail)
          db.session.add(db_event)
+         updated=True
       else:
         if db_event<updated_datetime:
           logging.debug("Updating db from calendar %r" % cal_event)
-          db_event.update_event(updated_datetime, cal_event)
+          db_event.update_event(updated_datetime, cal_event, self.send_mail)
+          updated=True
         else:
           if self.opts.refresh:
             if cal_event['status']!='cancelled':
               logging.debug("Forcing db update from calendar %r" % cal_event)
-            db_event.update_event(updated_datetime, cal_event)
-      db.session.commit()
-
+            updated=True
+            db_event.update_event(updated_datetime, cal_event, self.send_mail)
+    # After processing everthing, commit and return whether or not we've updated
+    db.session.commit()
+    return updated
 ##### Main
 def main(args=None, parser=None):
   def make_parser(parents=[]):
@@ -334,11 +396,16 @@ def main(args=None, parser=None):
     log=logging.getLogger()
     log.setLevel(logging.DEBUG)
   gg = GoogleInterface(opts)
-  gg.update_db_events()
-
+  updated=gg.update_db_events()
   ss=SpreadsheetInterface(gg.drive_http, gg.send_mail)
-  ss.process_followup()
+  # We want to do this each time,
+  # to email reminders if there is a problem.
   ss.check_past_events_for_tach()
+  ss.process_followup()
+
+  # This should only be done if there's been an update
+  if updated:
+    ss.calculate_users_points()
 
   ## XXX TODO:
   ## Deploy... 

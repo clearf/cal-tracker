@@ -21,6 +21,7 @@ import datetime
 import os
 import urllib
 import logging
+import random
 logging.basicConfig()
 
 # Utility functions
@@ -46,6 +47,21 @@ def convert_google_date(raw_date, frmt):
   except Exception as e:
     raise ValueError('%r, converting %s' % (e, raw_date))
     
+def email_to_name(email):
+  if email=='rjt.vmi@gmail.com':
+    return 'Rob'
+  elif email=='jordanzaretsky@gmail.com':
+    return 'Jordan'
+  elif email=='mark.brager@gmail.com':
+    return 'Mark'
+  elif email=='chris.clearfield@gmail.com':
+    return 'Chris'
+  else:
+    return email
+
+def airplane_salutation():
+  names=['The Mooney', 'N2201', 'The Speed Queen', 'Da Mooney', 'Your Airplane']
+  return random.choice(names)
 
 db_path = 'sqlite:///' + get_full_db_path('caltracker.sqlite')
 app = Flask('app')
@@ -70,12 +86,14 @@ class FlyingEvent(db.Model):
     send_followup = db.Column(db.Boolean)
     followup_sent = db.Column(db.Boolean)
 
-    def __init__(self, event_id, updated_datetime, event):
+    def __init__(self, event_id, updated_datetime, event, send_mail):
         self.event_id = event_id
-        self.update_event(updated_datetime, event)
+        self.update_event(updated_datetime, event, send_mail)
+        self.send_mail = send_mail
 
-    def update_event(self, updated_datetime, event):
+    def update_event(self, updated_datetime, event, send_mail):
         self.updated_datetime=convert_google_date(updated_datetime, 'google_ts')
+        self.send_mail = send_mail
         self.process_event_and_extract_data(event)
 
     def __lt__(self, new_date):
@@ -124,9 +142,23 @@ class FlyingEvent(db.Model):
             logging.warning('Could not parse description %r' % self.description)
           # A series of optional matches
           # If there is an X, we'll send a followup email
+          def set_reassignment():
+            assignment = re.search('^as:(.+)$', self.description, re.MULTILINE)
+            if assignment:
+              new_username=assignment.group(1)
+              original_username = self.creator_email
+              # We're actually seeing an assignment
+              if new_username!=original_username:
+                self.creator_email=new_username
+                message="Hey,\nWe are assigning this event (%s from %s to %s), originally assigned to %s, to %s.\nThanks,\n%s " \
+                         % (self.summary, str(self.start_date), str(self.end_date),
+                            email_to_name(original_username), email_to_name(new_username), airplane_salutation())
+                self.send_mail(message, subject='Assigning a flight', recipient="%s,%s" % (new_username, original_username))
+                logging.debug("Assigning event to %s", new_username)
           if re.search('X', self.description.upper(), re.MULTILINE):
             self.send_followup=True
             logging.debug("Sending followup")
+          set_reassignment()
       def gather_data():
         set_flying()
         self.creator_email = event['creator']['email']
