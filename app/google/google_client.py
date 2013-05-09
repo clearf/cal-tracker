@@ -86,7 +86,7 @@ class SpreadsheetInterface:
     tach_diff = event.tach_end - event.tach_start
     return """<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">
          <gsx:date>%s</gsx:date>
-         <gsx:pilotusername>%s</gsx:pilotusername>
+         <gsx:creatoremail>%s</gsx:creatoremail>
          <gsx:tachstart>%s</gsx:tachstart>
          <gsx:tachend>%s</gsx:tachend>
          <gsx:tachtime>%s</gsx:tachtime>
