@@ -124,6 +124,22 @@ class FlyingEvent(db.Model):
             return convert_google_date(date_structure['date'], 'date')
         except:
           raise ValueError('Bad Date Structure %r' % date_structure)
+      # Parse the description to see if there's an alternate assignment
+      def set_creator():
+        assignment = re.search('^as:(.+)$', self.description, re.MULTILINE)
+        if assignment:
+          new_username=assignment.group(1)
+          original_username = self.creator_email
+          if new_username != original_username:
+            self.creator_email=new_username
+            message="Hey,\nWe are assigning this event (%s from %s to %s), originally assigned to %s, to %s.\nThanks,\n%s " \
+                     % (self.summary, str(self.start_date), str(self.end_date),
+                        email_to_name(original_username), email_to_name(new_username), airplane_salutation())
+            self.send_mail(message, subject='Assigning a flight', recipient="%s,%s" % (new_username, original_username))
+            logging.debug("Assigning event to %s", new_username)
+        # If there's no assignmen, we'd like to make sure we have the right event.
+        else:
+          self.creator_email = event['creator']['email']
       def extract_hours():
         def get_digits(line):
           try: 
@@ -140,28 +156,11 @@ class FlyingEvent(db.Model):
             self.tach_end = get_digits(lines[1])
           except IndexError:
             logging.warning('Could not parse description %r' % self.description)
-          # A series of optional matches
-          # If there is an X, we'll send a followup email
-          def set_reassignment():
-            assignment = re.search('^as:(.+)$', self.description, re.MULTILINE)
-            if assignment:
-              new_username=assignment.group(1)
-              original_username = self.creator_email
-              # We're actually seeing an assignment
-              if new_username!=original_username:
-                self.creator_email=new_username
-                message="Hey,\nWe are assigning this event (%s from %s to %s), originally assigned to %s, to %s.\nThanks,\n%s " \
-                         % (self.summary, str(self.start_date), str(self.end_date),
-                            email_to_name(original_username), email_to_name(new_username), airplane_salutation())
-                self.send_mail(message, subject='Assigning a flight', recipient="%s,%s" % (new_username, original_username))
-                logging.debug("Assigning event to %s", new_username)
           if re.search('X', self.description.upper(), re.MULTILINE):
             self.send_followup=True
             logging.debug("Sending followup")
-          set_reassignment()
       def gather_data():
         set_flying()
-        self.creator_email = event['creator']['email']
         self.start_date = get_event_date(event['start'])
         self.end_date = get_event_date(event['end'])
         self.status = event['status']
@@ -173,6 +172,8 @@ class FlyingEvent(db.Model):
           self.description = event['description']
         except:
           self.description = ""
+          
+        set_creator()
         extract_hours()
       gather_data()
 
