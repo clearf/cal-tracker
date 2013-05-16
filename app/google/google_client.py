@@ -184,7 +184,9 @@ class SpreadsheetInterface:
       # End count_weekends_infringed
       continuous_start_date=max(event.start_date, datetime.datetime.today())
       booking_length = event.end_date - continuous_start_date
-      if booking_length > datetime.timedelta(days=14):
+      if booking_length <= datetime.timedelta(days=0):
+        return 0
+      elif booking_length > datetime.timedelta(days=14):
         points = 999 # No more than two weeks allowed
       elif booking_length > datetime.timedelta(days=7): # 7 to 14 days
         points = 3 
@@ -203,19 +205,22 @@ class SpreadsheetInterface:
                                           FlyingEvent.flying==True)).order_by(asc(FlyingEvent.end_date)).all()
     bookings={}
     for event in events:
+      points=calculate_event_points(event)
       summary_text =  event.creator_email,  event.summary, str(event.start_date), str(event.end_date),  \
-         event.end_date - max(event.start_date, datetime.datetime.today())
+         event.end_date - max(event.start_date, datetime.datetime.today()), points
       if event.creator_email not in bookings:
         bookings[event.creator_email] = {
-          'points': [calculate_event_points(event)],
+          'points': [points],
           'summary': [summary_text]
           }
       else:
-        bookings[event.creator_email]['points'].append(calculate_event_points(event))
+        bookings[event.creator_email]['points'].append(points)
         bookings[event.creator_email]['summary'].append(summary_text)
     message = '' 
     for email, booking in bookings.iteritems():
       total_points = sum(booking['points'])
+      logging.info(booking['summary'])
+      print booking['summary']
       message+='%s\t%d\n' % (email_to_name(email), total_points)
       if total_points > 4:
         message+='\t\t ^^^^ Too many points!\n'
@@ -225,7 +230,7 @@ class SpreadsheetInterface:
   # Check these events for tach 
   def check_past_events_for_tach(self):
     events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >  datetime.datetime(2013,04,01).date(), # This is from when we have good data
-                                         FlyingEvent.end_date <  datetime.datetime.today().date(),
+                                         FlyingEvent.end_date <  datetime.datetime.today(),
                                          FlyingEvent.flying==True)).order_by(asc(FlyingEvent.end_date)).all()
     for i, event in enumerate(events):
       if i == 0:
