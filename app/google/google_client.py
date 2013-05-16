@@ -28,9 +28,9 @@ logging.basicConfig()
 # For parsing google drive
 from bs4 import BeautifulSoup
 
+
 def get_full_path(file):
   return os.path.join(os.path.dirname(__file__), file)
-
 
 
 class SpreadsheetInterface:
