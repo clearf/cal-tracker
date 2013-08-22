@@ -9,3 +9,4 @@ credentials.secret
 google-api-python-client-1.1
 *.sqlite
 .*.sw?
+/tmp/

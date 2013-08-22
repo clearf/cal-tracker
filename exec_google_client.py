@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/home/clearf/python/bin/python
 import sys, os
 
 activate_this = os.path.join(os.environ['HOME'], 'cal-tracker', 'prod', 'bin', 'activate_this.py') 
