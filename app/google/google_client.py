@@ -15,7 +15,6 @@ from pytz import timezone
 from ..db.common import FlyingEvent, db, email_to_name, airplane_salutation
 from sqlalchemy import desc,asc,and_
 
-
 # Utilities
 import json
 import re
@@ -24,10 +23,8 @@ import base64
 import smtplib
 logging.basicConfig()
 
-
 # For parsing google drive
 from bs4 import BeautifulSoup
-
 
 def get_full_path(file):
   return os.path.join(os.path.dirname(__file__), file)
@@ -51,7 +48,7 @@ class SpreadsheetInterface:
       raise Exception("Unable to get resource %r" % resp)
 
   # Returns false if they differ
-  def row_equal_to_event(self, event, entry_tag) :
+  def row_equal_to_event(self, event, entry_tag):
     def entry_to_dict():
       dict = {}
       for data in entry_tag.find_all(re.compile('^gsx:')):
@@ -66,7 +63,17 @@ class SpreadsheetInterface:
       # Google spreadsheet removes _s
       keysub=re.sub('_','',key)
       if keysub in entry:
-        if str(event[key]) != str(entry[keysub]): #and entry[keysub] != '2201aviation@gmail.com':
+        if str(event[key]) != str(entry[keysub]): 
+          failure = False
+          try:
+             if float(event[key]) == float(entry[keysub]):
+                # Actually, we're OK, as they're floats and they match
+                pass
+             else:
+                failure = True
+          except:
+            failure = True
+          if failure:
            logging.warning('Key %s didn\'t match %s != %s, %r' % (key, str(event[key]), str(entry[keysub]), entry))
            return False
     return retval
