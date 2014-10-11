@@ -2,7 +2,7 @@
 
 # Web and google api
 
-from boto.s3.connection import S3Connection
+import boto
 
 import httplib2
 from email.mime.text import MIMEText
@@ -326,7 +326,7 @@ class GoogleInterface:
       #code=<from_that_webpage>
       #credentials = flow.step2_exchange(code=code)
       # After that, we save the credentials as a json to s3 and retrieve them from there going forward
-      conn=S3Connection()
+      conn=boto.connect_s3()
       bucket=conn.get_bucket('hobby.lyceum.dyn.dhs.org')
       credentials_string=bucket.get_key("cal-tracker/credentials.json").get_contents_as_string()
       self.credentials=Credentials.new_from_json(credentials_string)
