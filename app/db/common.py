@@ -65,7 +65,8 @@ def airplane_salutation():
   names=['The Mooney', 'N2201', 'The Speed Queen', 'Da Mooney', 'Your Airplane']
   return random.choice(names)
 
-db_path = 'sqlite:///' + get_full_db_path('caltracker.sqlite')
+db_path = 'sqlite:////data/' + 'caltracker.sqlite'
+print db_path
 app = Flask('app')
 app.config['SQLALCHEMY_DATABASE_URI'] = db_path
 db = SQLAlchemy(app)
