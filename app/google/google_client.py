@@ -327,7 +327,9 @@ class GoogleInterface:
       #credentials = flow.step2_exchange(code=code)
       # After that, we save the credentials as a json to s3 and retrieve them from there going forward
       conn=boto.connect_s3()
-      bucket=conn.get_bucket('hobby.lyceum.dyn.dhs.org')
+      # if Validate=True, boto validates by listing the contents of the bucket. But our ec2 IAM role doesn't have 
+      # list permissions, just read for its directory
+      bucket=conn.get_bucket('hobby.lyceum.dyn.dhs.org', validate=False) 
       credentials_string=bucket.get_key("cal-tracker/credentials.json").get_contents_as_string()
       self.credentials=Credentials.new_from_json(credentials_string)
 
