@@ -10,3 +10,5 @@ google-api-python-client-1.1
 *.sqlite
 .*.sw?
 /tmp/
+aws-credentials.csv
+.elasticbeanstalk/

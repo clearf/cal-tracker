@@ -2,15 +2,16 @@
 
 # Web and google api
 import httplib2
+from email.mime.text import MIMEText
 import os
 import sys
 import argparse
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
+from oauth2client.client import SignedJwtAssertionCredentials
 from apiclient import errors
 from apiclient.discovery import build
 import datetime
 from pytz import timezone
+from urllib import urlencode
 
 from ..db.common import FlyingEvent, db, email_to_name, airplane_salutation
 from sqlalchemy import desc,asc,and_
@@ -42,6 +43,7 @@ class SpreadsheetInterface:
 
   def get_data_contents(self):
     resp, content = self.drive_http.request(self.data_url)
+    self.cookie = resp['set-cookie']
     if resp.status == 200:
       self.data_soup=BeautifulSoup(content)
     else:
@@ -102,7 +104,7 @@ class SpreadsheetInterface:
                       event.tach_start, event.tach_end, tach_diff, event.event_id)
 
   def update_entry(self, event, edit_url):
-    headers = {"Content-type": "application/atom+xml"}
+    headers = {"Content-type": "application/atom+xml; charset=UTF-8"}
     try:
       new_entry=self.entry_tag_from_event(event)
     except TypeError as e:
@@ -116,17 +118,21 @@ class SpreadsheetInterface:
       raise Exception("Unable to upload event %r, response: %r" % (event, resp))
 
   def upload_new_entry(self, event):
-    headers = {"Content-type": "application/atom+xml"}
+    headers = {"Content-Type": "application/atom+xml"}
+    headers['Cookie'] = self.cookie
     try:
       new_entry=self.entry_tag_from_event(event)
     except TypeError as e:
       raise Exception("%r: Unable to upload event %r, probably tach time" % (e, event))
-    resp, content = self.drive_http.request(self.data_url, "POST", new_entry, headers)
+    print new_entry
+    headers['Content-Length'] = len(new_entry)
+    print "%r\n" % (self.drive_http)
+    resp, content = self.drive_http.request(self.data_url, "POST", headers=headers, body=new_entry)
     # Created
     if resp.status == 201:
       return content
     else:
-      raise Exception("Unable to upload event %r, response: %r" % (event, resp))
+      raise Exception("Unable to upload event %r,\n response: %r,\n content: %r" % (event, resp, content))
 
   def process_followup(self):
     def followup_message(event):
@@ -227,7 +233,7 @@ class SpreadsheetInterface:
     for email, booking in bookings.iteritems():
       total_points = sum(booking['points'])
       logging.info(booking['summary'])
-      print booking['summary']
+      # print booking['summary']
       message+='%s\t%d\n' % (email_to_name(email), total_points)
       if total_points > 4:
         message+='\t\t ^^^^ Too many points!\n'
@@ -274,17 +280,20 @@ Here's what I'm seeing:\n\n"
         raise Exception('Can\'t compare tachs: %r, %r, %r' % (e, event, events[i-1]))
 
 class GoogleInterface:
-  def __init__(self, argument_opts, credentials_path=get_full_path('credentials.secret'),
-               calendar_id='r86s1non6cr5dsmmjk38580ol4@group.calendar.google.com', username='2201aviation@gmail.com'):
+  def __init__(self, argument_opts,
+      calendar_id='r86s1non6cr5dsmmjk38580ol4@group.calendar.google.com', username='chris.clearfield@system-logic.com'):
+    
     # Generate or retrieve our credentials from storage
-    self.setup_credentials(credentials_path)
-    self.calendar_id = calendar_id
-    self.opts = argument_opts
     self.username=username
+    self.opts = argument_opts
+    self.opts.debug=True
+    self.setup_credentials()
+    self.calendar_id = calendar_id
 
     # Initalize our services
     self.drive_service, self.drive_http=self.build_service()
     self.cal_service, self.cal_http=self.build_service(service_name='calendar')
+    self.gmail_service, self.gmail_http=self.build_service(service_name='gmail')
 
   def build_service(self, service_name='drive'):
     """Build a service object.
@@ -293,7 +302,9 @@ class GoogleInterface:
     Returns:
       Drive service object.
     """
-    if service_name=='drive':
+    if service_name=='gmail':
+      version='v1'
+    elif service_name=='drive':
       version='v2'
     elif service_name=='calendar':
       version='v3'
@@ -303,49 +314,34 @@ class GoogleInterface:
     http = self.credentials.authorize(http)
     return build(service_name, version, http=http), http
 
-  def setup_credentials(self, credentials_path): 
-    if os.path.exists(credentials_path):
-      storage=Storage(get_full_path('credentials.secret'))
-      self.credentials=storage.get()
-    else:  
-      flow = flow_from_clientsecrets(get_full_path('client_secrets.json'),
-                                   scope='https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://spreadsheets.google.com/feeds https://docs.google.com/feeds https://mail.google.com/',
-                                   redirect_uri='urn:ietf:wg:oauth:2.0:oob'
-                                     )
-      auth_uri=flow.step1_get_authorize_url()
-      # We've used the "installed" auth feature to get our code already. 
-      json_data = open(get_full_path('code.json'))
-      data = json.load(json_data)
-      code = data['code']
-      credentials = flow.step2_exchange(code)
-      storage = Storage(credentials_path)
-      storage.put(credentials)
+  def setup_credentials(self): 
+      self.client_email = "116366442836-3geecui2c2u08q5of8doep5501kduri7@developer.gserviceaccount.com"
+      scope='https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://spreadsheets.google.com/feeds https://docs.google.com/feeds https://www.googleapis.com/auth/gmail.compose'
+
+      with open("/Users/clearf/Downloads/caltracker_privatekey.pem") as f:
+          private_key = f.read()
+
+      credentials = SignedJwtAssertionCredentials(self.client_email, private_key, scope, sub=self.username)
       self.credentials=credentials
 
   def send_mail(self, msg, subject='2201 Aviation', recipient='chris.clearfield@gmail.com'):
-    def generate_oauth2_string(base64_encode=True):
-      """Generates an IMAP OAuth2 authentication string.
-      See https://developers.google.com/google-apps/gmail/oauth2_overview
-      Args:
-        access_token: An OAuth2 access token.
-        base64_encode: Whether to base64-encode the output.
-      Returns:
-        The SASL argument for the OAuth2 mechanism.
-      """
-      auth_string = 'user=%s\1auth=Bearer %s\1\1' % (self.username, self.credentials.access_token)
-      if base64_encode:
-        auth_string = base64.b64encode(auth_string)
-      return auth_string
-    msg = 'From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n' % (self.username, recipient, subject) + msg
+    message = MIMEText(msg)
+    message['To'] = recipient
+    message['From'] = self.username
+    message['Subject'] = subject
+    print message
+    safe_message = {'raw': base64.urlsafe_b64encode(message.as_string())}
+
     if not self.opts.nomail:
-      smtp_conn = smtplib.SMTP('smtp.gmail.com', 587)
-      smtp_conn.ehlo()
-      smtp_conn.starttls()
-      smtp_conn.ehlo()
-      smtp_conn.docmd('AUTH', 'XOAUTH2 ' + generate_oauth2_string())
-      logging.debug(msg)
-      smtp_conn.sendmail(self.username, recipient, msg)
-      smtp_conn.quit()
+      try:
+        message = self.gmail_service.users().messages().send(userId=self.username, body=safe_message).execute()
+        print 'Message Id: %s' % message['id']
+        #threads = self.gmail_service.users().threads().list(userId=self.username).execute()
+        #if threads['threads']:
+          #for thread in threads['threads']:
+            #print 'Thread ID: %s' % (thread['id'])
+      except errors.HttpError, error:
+        print 'An error occurred: %s' % error
     else:
       print msg
     

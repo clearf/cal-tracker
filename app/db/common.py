@@ -155,7 +155,8 @@ class FlyingEvent(db.Model):
             self.tach_start = get_digits(lines[0])
             self.tach_end = get_digits(lines[1])
           except IndexError:
-            logging.warning('Could not extract hours from description %r' % self.description)
+            if self.description != '':
+              logging.warning('Could not extract hours from description %r' % self.description)
           if re.search('X', self.description.upper(), re.MULTILINE):
             self.send_followup=True
             logging.debug("Sending followup")
