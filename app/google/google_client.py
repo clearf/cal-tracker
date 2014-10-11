@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
 # Web and google api
+
+from boto.s3.connection import S3Connection
+
 import httplib2
 from email.mime.text import MIMEText
 import os
 import sys
 import argparse
-from oauth2client.client import SignedJwtAssertionCredentials
+from oauth2client.client import Credentials
 from apiclient import errors
 from apiclient.discovery import build
 import datetime
@@ -92,47 +95,45 @@ class SpreadsheetInterface:
       return False, None
 
   def entry_tag_from_event(self,event):
-    tach_diff = event.tach_end - event.tach_start
-    return """<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">
-         <gsx:date>%s</gsx:date>
-         <gsx:creatoremail>%s</gsx:creatoremail>
-         <gsx:tachstart>%s</gsx:tachstart>
-         <gsx:tachend>%s</gsx:tachend>
-         <gsx:tachtime>%s</gsx:tachtime>
-         <gsx:eventid>%s</gsx:eventid>
-    </entry>""" % (event.end_date.strftime('%Y-%m-%d'), event.creator_email,
-                      event.tach_start, event.tach_end, tach_diff, event.event_id)
+    try: 
+      tach_diff = event.tach_end - event.tach_start
+      return """<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">
+           <gsx:date>%s</gsx:date>
+           <gsx:creatoremail>%s</gsx:creatoremail>
+           <gsx:tachstart>%s</gsx:tachstart>
+           <gsx:tachend>%s</gsx:tachend>
+           <gsx:tachtime>%s</gsx:tachtime>
+           <gsx:eventid>%s</gsx:eventid>
+      </entry>""" % (event.end_date.strftime('%Y-%m-%d'), event.creator_email,
+                        event.tach_start, event.tach_end, tach_diff, event.event_id)
+    except TypeError:
+      self.send_mail("Fellas,\n It looks like there's no ending tach in the calendar for \"%s\","
+          "%s's event ending on %s\n" % (event.summary, event.creator_email, event.end_date.strftime('%Y-%m-%d')), 
+          subject="Missing tach end", recipient='mooney-201@googlegroups.com')
+      
 
   def update_entry(self, event, edit_url):
     headers = {"Content-type": "application/atom+xml; charset=UTF-8"}
-    try:
-      new_entry=self.entry_tag_from_event(event)
-    except TypeError as e:
-      raise Exception("%r: Unable to upload event %r, probably tach time" % (e, event))
-      
-    resp, content = self.drive_http.request(edit_url, "PUT", new_entry, headers)
-    # Success
-    if resp.status == 200:
-      return content
-    else:
-      raise Exception("Unable to upload event %r, response: %r" % (event, resp))
+    new_entry=self.entry_tag_from_event(event)
+    if new_entry: 
+      resp, content = self.drive_http.request(edit_url, "PUT", new_entry, headers)
+      # Success
+      if resp.status == 200:
+        return content
+      else:
+        raise Exception("Unable to upload event %r, response: %r" % (event, resp))
 
   def upload_new_entry(self, event):
-    headers = {"Content-Type": "application/atom+xml"}
+    headers = {"Content-Type": "application/atom+xml; charset=UTF-8"}
     headers['Cookie'] = self.cookie
-    try:
-      new_entry=self.entry_tag_from_event(event)
-    except TypeError as e:
-      raise Exception("%r: Unable to upload event %r, probably tach time" % (e, event))
-    print new_entry
-    headers['Content-Length'] = len(new_entry)
-    print "%r\n" % (self.drive_http)
-    resp, content = self.drive_http.request(self.data_url, "POST", headers=headers, body=new_entry)
-    # Created
-    if resp.status == 201:
-      return content
-    else:
-      raise Exception("Unable to upload event %r,\n response: %r,\n content: %r" % (event, resp, content))
+    new_entry=self.entry_tag_from_event(event)
+    if new_entry: 
+      resp, content = self.drive_http.request(self.data_url, "POST", headers=headers, body=new_entry)
+      # Created
+      if resp.status == 201:
+        return content
+      else:
+        raise Exception("Unable to upload event %r,\n response: %r,\n content: %r" % (event, resp, content))
 
   def process_followup(self):
     def followup_message(event):
@@ -281,7 +282,7 @@ Here's what I'm seeing:\n\n"
 
 class GoogleInterface:
   def __init__(self, argument_opts,
-      calendar_id='r86s1non6cr5dsmmjk38580ol4@group.calendar.google.com', username='chris.clearfield@system-logic.com'):
+      calendar_id='r86s1non6cr5dsmmjk38580ol4@group.calendar.google.com', username='2201aviation@gmail.com'):
     
     # Generate or retrieve our credentials from storage
     self.username=username
@@ -315,14 +316,20 @@ class GoogleInterface:
     return build(service_name, version, http=http), http
 
   def setup_credentials(self): 
-      self.client_email = "116366442836-3geecui2c2u08q5of8doep5501kduri7@developer.gserviceaccount.com"
       scope='https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://spreadsheets.google.com/feeds https://docs.google.com/feeds https://www.googleapis.com/auth/gmail.compose'
 
-      with open("/Users/clearf/Downloads/caltracker_privatekey.pem") as f:
-          private_key = f.read()
-
-      credentials = SignedJwtAssertionCredentials(self.client_email, private_key, scope, sub=self.username)
-      self.credentials=credentials
+# This is what we do to get the credentials in the first place. 
+      # Note the access_type *offline*
+      #flow=OAuth2WebServerFlow(client_id="116366442836.apps.googleusercontent.com", client_secret="DfS28bOzihgyqyKjsgS0Rum7", 
+      #  scope=scope, redirect_uri="urn:ietf:wg:oauth:2.0:oob", access_type="offline")
+      #flow.step1_get_authorize_url()
+      #code=<from_that_webpage>
+      #credentials = flow.step2_exchange(code=code)
+      # After that, we save the credentials as a json to s3 and retrieve them from there going forward
+      conn=S3Connection()
+      bucket=conn.get_bucket('hobby.lyceum.dyn.dhs.org')
+      credentials_string=bucket.get_key("cal-tracker/credentials.json").get_contents_as_string()
+      self.credentials=Credentials.new_from_json(credentials_string)
 
   def send_mail(self, msg, subject='2201 Aviation', recipient='chris.clearfield@gmail.com'):
     message = MIMEText(msg)
