@@ -54,6 +54,8 @@ def email_to_name(email):
     return 'Jordan'
   elif email=='mark.brager@gmail.com':
     return 'Mark'
+  elif email=='bajwa.aman@gmail.com':
+    return 'Aman'
   elif email=='chris.clearfield@gmail.com':
     return 'Chris'
   else:
