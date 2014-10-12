@@ -388,7 +388,7 @@ class GoogleInterface:
             if cal_event['status']!='cancelled':
               logging.debug("Forcing db update from calendar %r" % cal_event)
             updated=True
-            db_event.update_event(updated_datetime, cal_event, self.send_mail)
+            db_event.update_event(updated_datetime, cal_event, None)
     # After processing everthing, commit and return whether or not we've updated
     db.session.commit()
     return updated

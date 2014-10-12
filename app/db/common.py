@@ -143,7 +143,8 @@ class FlyingEvent(db.Model):
             message="Hey,\nWe are assigning this event (%s from %s to %s), originally assigned to %s, to %s.\nThanks,\n%s " \
                      % (self.summary, str(self.start_date), str(self.end_date),
                         email_to_name(original_username), email_to_name(new_username), airplane_salutation())
-            self.send_mail(message, subject='Assigning a flight', recipient="%s,%s" % (new_username, original_username))
+            if self.send_mail: 
+              self.send_mail(message, subject='Assigning a flight', recipient="%s,%s" % (new_username, original_username))
             logging.debug("Assigning event to %s", new_username)
         # If there's no assignmen, we'd like to make sure we have the right event.
         else:
