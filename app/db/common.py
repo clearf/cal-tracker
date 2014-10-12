@@ -24,6 +24,12 @@ import logging
 import random
 logging.basicConfig()
 
+
+### So I don't forget how to do this (again)
+# python
+# from app.common.db import db
+# db.create_all() # (Why is this so hard to find on the web?)
+
 # Utility functions
 def get_full_db_path(file):
   return os.path.join(os.path.dirname(os.path.abspath(__file__)), file)
