@@ -1,0 +1,273 @@
+{
+    "ConfigurationSettings": [
+        {
+            "ApplicationName": "cal-tracker", 
+            "EnvironmentName": "cal-tracker-env", 
+            "Description": "TemplatePack for environment: cal-tracker-env", 
+            "DeploymentStatus": "deployed", 
+            "DateCreated": "2014-10-12T22:12:40Z", 
+            "OptionSettings": [
+                {
+                    "OptionName": "AWS_SECRET_KEY", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "DJANGO_SETTINGS_MODULE", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "AppSource", 
+                    "Namespace": "aws:cloudformation:template:parameter", 
+                    "Value": "http://s3.amazonaws.com/elasticbeanstalk-samples-us-west-2/basicapp.zip"
+                }, 
+                {
+                    "OptionName": "AWS_ACCESS_KEY_ID", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "/static/", 
+                    "Namespace": "aws:elasticbeanstalk:container:python:staticfiles", 
+                    "Value": "static/"
+                }, 
+                {
+                    "OptionName": "WSGIPath", 
+                    "Namespace": "aws:elasticbeanstalk:container:python", 
+                    "Value": "application.py"
+                }, 
+                {
+                    "OptionName": "PARAM1", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "PARAM2", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "InstancePort", 
+                    "Namespace": "aws:cloudformation:template:parameter", 
+                    "Value": "80"
+                }, 
+                {
+                    "OptionName": "PARAM4", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "PARAM3", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "NumProcesses", 
+                    "Namespace": "aws:elasticbeanstalk:container:python", 
+                    "Value": "1"
+                }, 
+                {
+                    "OptionName": "EnvironmentVariables", 
+                    "Namespace": "aws:cloudformation:template:parameter", 
+                    "Value": "AWS_ACCESS_KEY_ID=,AWS_SECRET_KEY=,DJANGO_SETTINGS_MODULE=,PARAM1=,PARAM2=,PARAM3=,PARAM4=,PARAM5="
+                }, 
+                {
+                    "OptionName": "PARAM5", 
+                    "Namespace": "aws:elasticbeanstalk:application:environment", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "LogPublicationControl", 
+                    "Namespace": "aws:elasticbeanstalk:hostmanager", 
+                    "Value": "false"
+                }, 
+                {
+                    "OptionName": "StaticFiles", 
+                    "Namespace": "aws:elasticbeanstalk:container:python", 
+                    "Value": "/static/=static/"
+                }, 
+                {
+                    "OptionName": "InstanceType", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "t1.micro"
+                }, 
+                {
+                    "OptionName": "NumThreads", 
+                    "Namespace": "aws:elasticbeanstalk:container:python", 
+                    "Value": "15"
+                }, 
+                {
+                    "OptionName": "IamInstanceProfile", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "cal-tracker-config"
+                }, 
+                {
+                    "OptionName": "ImageId", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "ami-043a5034"
+                }, 
+                {
+                    "OptionName": "MonitoringInterval", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "5 minute"
+                }, 
+                {
+                    "OptionName": "SecurityGroups", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "awseb-e-knicbqxmgb-stack-AWSEBSecurityGroup-CW7CYF9T2AH6"
+                }, 
+                {
+                    "OptionName": "EC2KeyName", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "mbp"
+                }, 
+                {
+                    "OptionName": "RootVolumeType", 
+                    "Namespace": "aws:autoscaling:launchconfiguration"
+                }, 
+                {
+                    "OptionName": "RootVolumeSize", 
+                    "Namespace": "aws:autoscaling:launchconfiguration"
+                }, 
+                {
+                    "OptionName": "BlockDeviceMappings", 
+                    "Namespace": "aws:autoscaling:launchconfiguration"
+                }, 
+                {
+                    "OptionName": "RootVolumeIOPS", 
+                    "Namespace": "aws:autoscaling:launchconfiguration"
+                }, 
+                {
+                    "OptionName": "AssociatePublicIpAddress", 
+                    "Namespace": "aws:ec2:vpc"
+                }, 
+                {
+                    "OptionName": "MaxSize", 
+                    "Namespace": "aws:autoscaling:asg", 
+                    "Value": "1"
+                }, 
+                {
+                    "OptionName": "Cooldown", 
+                    "Namespace": "aws:autoscaling:asg", 
+                    "Value": "360"
+                }, 
+                {
+                    "OptionName": "MinSize", 
+                    "Namespace": "aws:autoscaling:asg", 
+                    "Value": "1"
+                }, 
+                {
+                    "OptionName": "Availability Zones", 
+                    "Namespace": "aws:autoscaling:asg", 
+                    "Value": "Any"
+                }, 
+                {
+                    "OptionName": "MinInstancesInService", 
+                    "Namespace": "aws:autoscaling:updatepolicy:rollingupdate"
+                }, 
+                {
+                    "OptionName": "RollingUpdateEnabled", 
+                    "Namespace": "aws:autoscaling:updatepolicy:rollingupdate", 
+                    "Value": "false"
+                }, 
+                {
+                    "OptionName": "Custom Availability Zones", 
+                    "Namespace": "aws:autoscaling:asg", 
+                    "Value": "us-west-2b"
+                }, 
+                {
+                    "OptionName": "Subnets", 
+                    "Namespace": "aws:ec2:vpc"
+                }, 
+                {
+                    "OptionName": "MaxBatchSize", 
+                    "Namespace": "aws:autoscaling:updatepolicy:rollingupdate"
+                }, 
+                {
+                    "OptionName": "PauseTime", 
+                    "Namespace": "aws:autoscaling:updatepolicy:rollingupdate"
+                }, 
+                {
+                    "OptionName": "VPCId", 
+                    "Namespace": "aws:ec2:vpc"
+                }, 
+                {
+                    "OptionName": "RollbackLaunchOnFailure", 
+                    "Namespace": "aws:elasticbeanstalk:control", 
+                    "Value": "false"
+                }, 
+                {
+                    "OptionName": "DefaultSSHPort", 
+                    "Namespace": "aws:elasticbeanstalk:control", 
+                    "Value": "22"
+                }, 
+                {
+                    "OptionName": "LaunchType", 
+                    "Namespace": "aws:elasticbeanstalk:control", 
+                    "Value": "Migration"
+                }, 
+                {
+                    "OptionName": "Automatically Terminate Unhealthy Instances", 
+                    "Namespace": "aws:elasticbeanstalk:monitoring", 
+                    "Value": "true"
+                }, 
+                {
+                    "OptionName": "LaunchTimeout", 
+                    "Namespace": "aws:elasticbeanstalk:control", 
+                    "Value": "0"
+                }, 
+                {
+                    "OptionName": "EnvironmentType", 
+                    "Namespace": "aws:elasticbeanstalk:environment", 
+                    "Value": "SingleInstance"
+                }, 
+                {
+                    "OptionName": "SSHSourceRestriction", 
+                    "Namespace": "aws:autoscaling:launchconfiguration", 
+                    "Value": "tcp,22,22,0.0.0.0/0"
+                }, 
+                {
+                    "OptionName": "Notification Topic ARN", 
+                    "Namespace": "aws:elasticbeanstalk:sns:topics", 
+                    "Value": "arn:aws:sns:us-west-2:706765335860:ElasticBeanstalkNotifications-Environment-cal-tracker-env"
+                }, 
+                {
+                    "OptionName": "Notification Endpoint", 
+                    "Namespace": "aws:elasticbeanstalk:sns:topics", 
+                    "Value": "chris.clearfield@gmail.com"
+                }, 
+                {
+                    "OptionName": "BatchSize", 
+                    "Namespace": "aws:elasticbeanstalk:command", 
+                    "Value": "100"
+                }, 
+                {
+                    "OptionName": "Timeout", 
+                    "Namespace": "aws:elasticbeanstalk:command", 
+                    "Value": "480"
+                }, 
+                {
+                    "OptionName": "Application Healthcheck URL", 
+                    "Namespace": "aws:elasticbeanstalk:application", 
+                    "Value": null
+                }, 
+                {
+                    "OptionName": "Notification Topic Name", 
+                    "Namespace": "aws:elasticbeanstalk:sns:topics"
+                }, 
+                {
+                    "OptionName": "Notification Protocol", 
+                    "Namespace": "aws:elasticbeanstalk:sns:topics", 
+                    "Value": "email"
+                }, 
+                {
+                    "OptionName": "BatchSizeType", 
+                    "Namespace": "aws:elasticbeanstalk:command", 
+                    "Value": "Percentage"
+                }
+            ], 
+            "DateUpdated": "2014-10-13T06:20:01Z"
+        }
+    ]
+}
