@@ -35,13 +35,14 @@ def get_full_path(file):
 
 
 class SpreadsheetInterface:
-  def __init__(self, http, send_mail, worksheet_url='0AvS2F7wRovC4dEpmMEFGYnJVVWZpV1RTUzZLYk5UTnc'):
+  def __init__(self, http, send_mail, cal_tz, worksheet_url='0AvS2F7wRovC4dEpmMEFGYnJVVWZpV1RTUzZLYk5UTnc'):
     self.drive_http = http
     # Try to download a specific google drive row
     google_base_url='https://spreadsheets.google.com/feeds/list/'
     self.data_url = google_base_url + worksheet_url + '/od4/private/full'
     self.log_url =  google_base_url + worksheet_url + '/od5/private/full'
     self.send_mail = send_mail
+    self.cal_tz = cal_tz
     self.get_data_contents()
 
   def get_data_contents(self):
@@ -244,7 +245,7 @@ class SpreadsheetInterface:
   # Check these events for tach 
   def check_past_events_for_tach(self):
     events=FlyingEvent.query.filter(and_(FlyingEvent.end_date >  datetime.datetime(2013,04,01).date(), # This is from when we have good data
-                                         FlyingEvent.end_date <  datetime.datetime.today(),
+                                         FlyingEvent.end_date <  datetime.datetime.now(self.cal_tz) - datetime.timedelta(days=1), #Add a one day grace period
                                          FlyingEvent.flying==True)).order_by(asc(FlyingEvent.end_date)).all()
     for i, event in enumerate(events):
       if i == 0:
@@ -358,10 +359,10 @@ class GoogleInterface:
   def update_db_events(self):
     def query_events():
       # Pull the calendar timezone 
-      cal_tz = self.cal_service.calendars().get(calendarId=self.calendar_id).execute()['timeZone']
+      self.cal_tz = timezone(self.cal_service.calendars().get(calendarId=self.calendar_id).execute()['timeZone'])
       time_format = '%Y-%m-%dT%H:%M:%S'
       # A static time for which our calendar entries are well formatted.
-      timeMin=datetime.datetime(2013,04,01,0,0,0, tzinfo=timezone(cal_tz)).strftime(time_format+'%z')
+      timeMin=datetime.datetime(2013,04,01,0,0,0, tzinfo=self.cal_tz).strftime(time_format+'%z')
       events = self.cal_service.events().list(calendarId=self.calendar_id, orderBy='startTime', singleEvents=True,
                                               timeMin=timeMin, showDeleted=True).execute()
       if events['items']:
@@ -414,7 +415,7 @@ def main(args=None, parser=None):
     log.setLevel(logging.DEBUG)
   gg = GoogleInterface(opts)
   updated=gg.update_db_events()
-  ss=SpreadsheetInterface(gg.drive_http, gg.send_mail)
+  ss=SpreadsheetInterface(gg.drive_http, gg.send_mail, gg.cal_tz)
   # We want to do this each time,
   # to email reminders if there is a problem.
   ss.check_past_events_for_tach()

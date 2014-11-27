@@ -12,5 +12,5 @@ google-api-python-client==1.2
 httplib2==0.9
 pycrypto==2.6.1
 python-gflags==2.0
-pytz==2013b
+pytz==2014.9
 wsgiref==0.1.2
