@@ -6,6 +6,7 @@ exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 #
 
 EMAIL="chris.clearfield@gmail.com"
+FROM_EMAIL="2201aviation@gmail.com"
 
 # Upgrade and install Postfix so we can send a sample email
 export DEBIAN_FRONTEND=noninteractive
@@ -43,11 +44,11 @@ output=$(python -m app.google.google_client)
 
 # Send status email
 /usr/sbin/sendmail -oi -t -f $EMAIL <<EOM
-From: $EMAIL
+From: $FROM_EMAIL
 To: $EMAIL
 Subject: Ran process in autoscaling
 
-Output: $output
+Output (no output is OK): $output
 
 This email message was generated on the following EC2 instance:
 
