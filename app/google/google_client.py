@@ -358,17 +358,23 @@ class GoogleInterface:
 
   def update_db_events(self):
     def query_events():
-      # Pull the calendar timezone 
+      # Pull the calendar timezone
       self.cal_tz = timezone(self.cal_service.calendars().get(calendarId=self.calendar_id).execute()['timeZone'])
       time_format = '%Y-%m-%dT%H:%M:%S'
       # A static time for which our calendar entries are well formatted.
       timeMin=datetime.datetime(2013,04,01,0,0,0, tzinfo=self.cal_tz).strftime(time_format+'%z')
-      events = self.cal_service.events().list(calendarId=self.calendar_id, orderBy='startTime', singleEvents=True,
-                                              timeMin=timeMin, showDeleted=True).execute()
-      if events['items']:
-        return events['items'] 
-      else:
-        None
+      event_list = []
+      page_token = None
+      while True:
+          events = self.cal_service.events().list(calendarId=self.calendar_id, orderBy='startTime', singleEvents=True,
+                                              timeMin=timeMin, showDeleted=True, pageToken=page_token).execute()
+          if events['items']:
+              event_list += events['items']
+          page_token = events.get('nextPageToken')
+
+          if not page_token:
+              break
+      return event_list
     updated=False
     for cal_event in query_events():
       updated_datetime = cal_event['updated']
